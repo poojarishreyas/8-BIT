@@ -25,7 +25,7 @@ import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-BASE_URL = os.environ.get("CHAT_BASE_URL", "https://flights-logo-wondering-accomplished.trycloudflare.com/v1").rstrip("/")
+BASE_URL = os.environ.get("CHAT_BASE_URL", "https://tattoo-durham-titanium-belong.trycloudflare.com/v1").rstrip("/")
 API_KEY = os.environ.get("CHAT_API_KEY", "IULAqgTEfJNwk0YiiBoCaSsMq8Vd_0G_WhD0cPyyoIc")
 MODEL = os.environ.get("CHAT_MODEL", "vajram-8b")
 PORT = int(os.environ.get("PORT", "8787"))
