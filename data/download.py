@@ -27,6 +27,9 @@ TRAIN_SOURCES = {
     "kan_Latn": dict(repo="ai4bharat/sangraha",
                      files=[f"synthetic/kan_Latn/wiki_kan_Latn_{i:04d}_of_0063.parquet" for i in range(63)], field="text"),
     "eng_Latn": dict(repo="HuggingFaceFW/fineweb-edu", files=["sample/10BT/000_00000.parquet"], field="text"),
+    # Sangraha verified/kan has ZWNJ stripped (0.00 per 10k chars vs 33 in FLORES devtest, 80 in IN22-Gen);
+    # Kannada Wikipedia keeps it (13 per 10k), so it is mixed into Kannada training text.
+    "kan_Knda_wiki": dict(repo="wikimedia/wikipedia", files=["20231101.kn/train-00000-of-00001.parquet"], field="text"),
 }
 
 

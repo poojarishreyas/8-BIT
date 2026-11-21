@@ -1,0 +1,18 @@
+{
+ "model": "Qwen/Qwen3-1.7B",
+ "gpu": "Tesla T4",
+ "dtype": "fp16",
+ "attn": "sdpa",
+ "seq_len": 1024,
+ "batch": 4,
+ "date": "2026-11-20",
+ "torch": "2.11.0+cu130",
+ "transformers": "5.20.2",
+ "peft": "0.21.2",
+ "gen_tokens_per_s": 21.041356830906466,
+ "train_tokens_per_s": 756.1165801136118,
+ "peak_mem_gb": 11.639781376,
+ "final_loss": 12.185846328735352,
+ "trainable_params": 17432576,
+ "notes": "Single T4 (cuda:0), LoRA r=16 on all attention+MLP projections, gradient checkpointing on, random tokens. Kaggle image needed `pip uninstall -y torchao` first (torchao 0.10.0 too old for peft 0.21.2)."
+}

@@ -1,0 +1,35 @@
+{
+ "config": {
+  "base": "Qwen/Qwen3-1.7B",
+  "pattern": "mark_zw",
+  "units": "akshara",
+  "suffix": "seed",
+  "parity": "off",
+  "new_tokens": 16000,
+  "min_akshara_freq": 5,
+  "train": "data/processed/train/kan_Knda_mix.txt",
+  "max_lines": null,
+  "out": "artifacts/ext/l123z_16k"
+ },
+ "date": "2026-11-20",
+ "first_new_id": 151669,
+ "kannada_word_types": 509597,
+ "kannada_word_tokens": 3631823,
+ "akshara_types": 10410,
+ "akshara_types_single_token": 5142,
+ "akshara_occurrence_coverage": 0.9993128331812356,
+ "suffix_split_word_tokens": 747100,
+ "stage_merge_counts": {
+  "a0": 259,
+  "a1": 4971,
+  "b": 10770
+ },
+ "appended_merges": 15997,
+ "appended_tokens": 15997,
+ "dropped": {
+  "no_kannada_bytes": 2,
+  "missing_component": 1
+ },
+ "last_new_id": 167665,
+ "seconds": 262.5
+}

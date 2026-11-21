@@ -18,3 +18,7 @@ Cell 3: download `results/kaggle_smoke_Tesla_T4_*.json` and commit it to `result
 **Then stop the session**, because the quota counts wall-clock time.
 
 If it goes OOM at batch 4, use `--batch 2`.
+
+**Known issue (found 20 Nov 2026):** the Kaggle image ships torchao 0.10.0, which makes peft 0.21.2 fail in `get_peft_model` ("incompatible version of torchao"). Run `!pip uninstall -y -q torchao` before any PEFT/LoRA code, in every Kaggle notebook.
+
+**Measured (single T4, LoRA r=16, grad checkpointing, seq 1024, batch 4):** 756 training tokens/s (~2.7M tokens/hour per GPU), 21 generation tokens/s, 11.6 GB peak memory.

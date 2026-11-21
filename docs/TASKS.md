@@ -24,19 +24,19 @@ Measure
 
 Tests and compute
 - [x] Tests: old-vs-new identity, round trip, akshara integrity (using `akshara-tokenizer`, not `\X`)
-- [ ] Kaggle smoke test: load Qwen3-1.7B in fp16, measure training tokens/s
+- [x] Kaggle smoke test: load Qwen3-1.7B in fp16, measure training tokens/s (756 tok/s per T4, see results/kaggle_smoke_Tesla_T4_2026-11-20.json)
 
 **Exit check:** baseline + quick-win numbers in `results/`; tests run; Kanglish set frozen.
 
 ## Phase 2 — Build the tokenizer and train (hours 12–36)
 
 Tokenizer (assembled from reused parts)
-- [ ] Pre-split Kannada training text at akshara boundaries (`akshara-tokenizer`)
-- [ ] Add stem/suffix boundaries (`morfessor` + seed suffix list); hand-check 100 words
+- [x] Akshara units (a0 chars, a1 aksharas) instead of pre-splitting — see docs/PHASE2_NOTES.md (`akshara-tokenizer`)
+- [~] Stem/suffix boundaries: seed list done; Morfessor + hand-check 100 words TODO
 - [ ] Learn new merges with `parity-aware-bpe` on pre-split text (fallback: HF `BpeTrainer`; note which)
-- [ ] Filter new tokens to akshara-aligned strings
-- [ ] Append vocab + merges to Qwen3 `tokenizer.json` after the highest existing ID; mark-aware pattern in both places
-- [ ] Tests green (identity on English/JSON/code/tool calls)
+- [x] Filter new tokens: must contain Kannada bytes (identity by construction); akshara-aligned by construction
+- [x] Append vocab + merges to Qwen3 `tokenizer.json` after the highest existing ID; mark-aware pattern in both places
+- [x] Tests green (identity on English/JSON/code/tool calls)
 - [ ] Ablation: add layers 1→4 one at a time
 - [ ] Vocab sweep: 8K, 16K, 32K, 64K, 128K new merges
 - [ ] Romanized-Kannada tokenizer (HF `tokenizers`) for the Kanglish comparison

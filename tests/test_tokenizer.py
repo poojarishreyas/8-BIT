@@ -77,6 +77,18 @@ def test_identity_old_vs_new(old, new):
     assert not bad, f"{len(bad)} strings differ, e.g. {bad[:5]}"
 
 
+ZW_NON_KANNADA = [
+    "👨‍👩‍👧 family", "🏳️‍🌈 flag", "word‌ next", "a‍b", "می‌خواهم",  # Persian ZWNJ
+    "क्‍ष", "x ‌ y", "‍", "emoji 👍🏽‍ ok",
+]
+
+
+@pytest.mark.parametrize("text", ZW_NON_KANNADA)
+def test_identity_zw_outside_kannada(old, new, text):
+    # the ZW-aware split rule may only change text where ZWJ/ZWNJ follows a Kannada character
+    assert old.encode(text, add_special_tokens=False).ids == new.encode(text, add_special_tokens=False).ids
+
+
 def test_new_keeps_all_old_ids(old, new):
     ov, nv = old.get_vocab(with_added_tokens=True), new.get_vocab(with_added_tokens=True)
     changed = [t for t, i in ov.items() if nv.get(t) != i]

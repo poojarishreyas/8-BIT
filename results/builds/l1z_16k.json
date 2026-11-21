@@ -1,0 +1,29 @@
+{
+ "config": {
+  "base": "Qwen/Qwen3-1.7B",
+  "pattern": "mark_zw",
+  "units": "old",
+  "suffix": "none",
+  "parity": "off",
+  "new_tokens": 16000,
+  "min_akshara_freq": 5,
+  "train": "data/processed/train/kan_Knda_mix.txt",
+  "max_lines": null,
+  "out": "artifacts/ext/l1z_16k"
+ },
+ "date": "2026-11-20",
+ "first_new_id": 151669,
+ "kannada_word_types": 509597,
+ "kannada_word_tokens": 3631823,
+ "stage_merge_counts": {
+  "b": 16000
+ },
+ "appended_merges": 15983,
+ "appended_tokens": 15983,
+ "dropped": {
+  "no_kannada_bytes": 2,
+  "missing_component": 15
+ },
+ "last_new_id": 167651,
+ "seconds": 594.4
+}

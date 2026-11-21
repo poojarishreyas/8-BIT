@@ -30,6 +30,12 @@
    "dropped_dup": 0,
    "chars": 30007415
   },
+  "kan_Knda_wiki.txt": {
+   "kept": 6819,
+   "dropped_test_overlap": 0,
+   "dropped_dup": 34,
+   "chars": 30010964
+  },
   "kan_Latn.txt": {
    "kept": 8048,
    "dropped_test_overlap": 0,
