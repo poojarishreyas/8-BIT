@@ -1,0 +1,22 @@
+# Core tokenizer + eval (laptop, CPU)
+tokenizers>=0.21
+transformers>=4.51
+tiktoken>=0.8
+sentencepiece>=0.2
+protobuf
+regex
+datasets>=3.0
+huggingface_hub
+pandas
+pytest
+sacrebleu>=2.4
+morfessor
+indic-nlp-library
+tokenization-scorer
+# Reuse-table packages installed from source (see scripts/setup_third_party.sh):
+#   akshara-tokenizer   (clone + pip install .)
+#   parity-aware-bpe    pip install git+https://github.com/swiss-ai/parity-aware-bpe.git
+#   indictok, tokenization-fairness (clone only; benchmark/parity scripts)
+# GPU / later phases (install on Kaggle, not needed for Phase 1 laptop work):
+#   peft accelerate lm-eval deepfocus outlines fastapi uvicorn
+#   ai4bharat-transliteration  (IndicXlit; pins old fairseq, use a separate env)

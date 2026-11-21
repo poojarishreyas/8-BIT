@@ -1,0 +1,83 @@
+# Task checklist (by phase)
+
+Finish a phase's exit check before starting the next. Put every number into `results/`.
+
+## Phase 1 — Measure and set up (hours 0–12)
+
+Setup
+- [ ] Phone-verify all four Kaggle accounts (GPU + internet)
+- [x] Repo scaffold, `requirements.txt`, `tests/`
+- [ ] Install reused tools: `tokenizers`, `tiktoken`, `akshara-tokenizer` (clone + `pip install .`), `morfessor`, `parity-aware-bpe` (pip from GitHub), `indic-nlp-library`, `ai4bharat-transliteration`, `deepfocus`, `tokenization-scorer`, `lm-eval`, `sacrebleu`
+- [x] Clone `vivekvar-dl/indictok` and `AleksandarPetrov/tokenization-fairness` for their benchmark/parity scripts
+
+Data
+- [x] FLORES-200 devtest (eng_Latn, kan_Knda), IN22-Gen, Belebele, Sangraha Kannada subset, English sample
+- [x] Remove any FLORES text from training data; dedupe
+- [ ] Team writes the Kanglish test set (150–200 sentences) — freeze it
+- [ ] Romanize Kannada sentences with IndicXlit
+
+Measure
+- [x] Level 1 script: tokens/sentence, parity, fertility, chars/token, akshara-split rate, byte-fallback rate
+- [ ] Baselines: cl100k, o200k, Llama-3, Gemma-3, Sarvam, indictok-256k, Qwen3 (record each one's pre-tokenizer pattern)
+- [ ] Kanglish tax table (Kannada vs romanized vs Kanglish vs English)
+- [x] Quick win: HF BPE with original Qwen3 pattern vs `[\p{L}\p{M}]+`, same data, same vocab
+
+Tests and compute
+- [x] Tests: old-vs-new identity, round trip, akshara integrity (using `akshara-tokenizer`, not `\X`)
+- [ ] Kaggle smoke test: load Qwen3-1.7B in fp16, measure training tokens/s
+
+**Exit check:** baseline + quick-win numbers in `results/`; tests run; Kanglish set frozen.
+
+## Phase 2 — Build the tokenizer and train (hours 12–36)
+
+Tokenizer (assembled from reused parts)
+- [ ] Pre-split Kannada training text at akshara boundaries (`akshara-tokenizer`)
+- [ ] Add stem/suffix boundaries (`morfessor` + seed suffix list); hand-check 100 words
+- [ ] Learn new merges with `parity-aware-bpe` on pre-split text (fallback: HF `BpeTrainer`; note which)
+- [ ] Filter new tokens to akshara-aligned strings
+- [ ] Append vocab + merges to Qwen3 `tokenizer.json` after the highest existing ID; mark-aware pattern in both places
+- [ ] Tests green (identity on English/JSON/code/tool calls)
+- [ ] Ablation: add layers 1→4 one at a time
+- [ ] Vocab sweep: 8K, 16K, 32K, 64K, 128K new merges
+- [ ] Romanized-Kannada tokenizer (HF `tokenizers`) for the Kanglish comparison
+
+Tiny models (Level 2)
+- [ ] nanoGPT trainer, 20–50M params, fp16, DDP on 2× T4, budget matched by characters
+- [ ] Runs: plain BPE ×2, ours ×2 (overnight)
+- [ ] Runs: layer-1-only, byte-level
+- [ ] BPC on held-out Kannada, English, romanized, Kanglish
+
+Real model (Level 3, stages A–B)
+- [ ] Resize Qwen3-1.7B embeddings; mean init and FOCUS init
+- [ ] Train only new rows (PEFT trainable tokens or separate table)
+- [ ] Stage A (new rows), Stage B (LoRA continued pretraining)
+- [ ] Same stages for the standard-extension baseline
+- [ ] Save both models (Kaggle output / HF Hub, private)
+
+**Exit check:** ablation table, BPC table, two trained 1.7B models saved.
+
+## Phase 3 — Evaluate, demo and pitch (hours 36–48)
+
+Model evaluation
+- [ ] Stage C instruction + tool-call tuning (both extended models)
+- [ ] Belebele kan_Knda + eng_Latn + romanized; FLORES chrF++ both directions
+- [ ] Speed, ₹ per 1,000 answers, context fit
+- [ ] Three-route test: native Kannada vs translate-to-English vs Kanglish
+- [ ] Blind human rating, 20 Kannada + 20 Kanglish prompts
+
+Agent demo
+- [ ] Model server: OpenAI-style endpoint, constrained tool calls, token + time fields
+- [ ] Tunnel + laptop CPU fallback
+- [ ] Harness composition: web_search, web_fetch, read, ask_user_question (+ todo_write)
+- [ ] MCP tools: weather, BMTC bus, mandi prices, Kannada Wikipedia
+- [ ] Agent test set (150 queries) + scorer; 52-tool vs 8-tool comparison
+- [ ] Dashboard: token visualizer + side-by-side agent run
+- [ ] Record backup demo video
+
+Pitch
+- [ ] Hour 40: freeze experiments
+- [ ] Fill slide placeholders from `results/`
+- [ ] Failure analysis slide with real examples
+- [ ] Rehearse pitch and demo
+
+**Exit check:** every slide number traceable to `results/`; backup demo path works.

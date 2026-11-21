@@ -1,0 +1,40 @@
+{
+ "date": "2026-11-20",
+ "ngram": 8,
+ "test_dirs": [
+  "data\\raw\\test",
+  "data\\processed\\test"
+ ],
+ "test_files": [
+  "belebele_eng_Latn.jsonl",
+  "belebele_kan_Knda.jsonl",
+  "belebele_passages_eng_Latn.txt",
+  "belebele_passages_kan_Knda.txt",
+  "flores_dev_eng_Latn.txt",
+  "flores_dev_kan_Knda.txt",
+  "flores_devtest_eng_Latn.txt",
+  "flores_devtest_kan_Knda.txt",
+  "in22gen_eng_Latn.txt",
+  "in22gen_kan_Knda.txt"
+ ],
+ "files": {
+  "eng_Latn.txt": {
+   "kept": 6188,
+   "dropped_test_overlap": 1,
+   "dropped_dup": 0,
+   "chars": 29988546
+  },
+  "kan_Knda.txt": {
+   "kept": 14869,
+   "dropped_test_overlap": 0,
+   "dropped_dup": 0,
+   "chars": 30007415
+  },
+  "kan_Latn.txt": {
+   "kept": 8048,
+   "dropped_test_overlap": 0,
+   "dropped_dup": 1,
+   "chars": 30003309
+  }
+ }
+}

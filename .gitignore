@@ -1,0 +1,11 @@
+.venv*/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/raw/
+data/processed/
+third_party/
+artifacts/
+*.safetensors
+*.bin
+.env
