@@ -1,0 +1,14 @@
+{
+ "tool": "ai4bharat-transliteration (IndicXlit)",
+ "direction": "kn->en",
+ "beam": 4,
+ "date": "2026-11-21",
+ "files": {
+  "in22gen_kan_Knda.txt": {
+   "lines": 1024,
+   "failed": 0,
+   "seconds": 3034.8,
+   "output": "in22gen_kan_Latn_xlit.txt"
+  }
+ }
+}

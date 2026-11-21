@@ -61,11 +61,14 @@ python -m tokenizer.package_handoff                          # dist/bigo_final_t
 - **Level 2 (tiny-model bits per character) was skipped**, so there is no model-quality evidence for the
   layers yet. Layer 3 costs about 4.5% more tokens at Level 1, and any benefit would need BPC or downstream
   results to show.
-- **Layer 4 is implemented but the final build was not completed.** With English held fixed and only Kannada
-  merges allowed, parity-aware selection reduces to standard BPE plus a stopping point at parity.
+- **Layer 4 is implemented but the final build was not completed** (stopped by hand at 11,700 of 26,770 merges
+  after 61 min; about 20× slower than plain BPE because it re-scores the dev sets after every merge). With English
+  held fixed and only Kannada merges allowed, parity-aware selection reduces to standard BPE plus a stopping point
+  at parity, so we expect no gain (reasoned, not measured).
 - **Kanglish is not improved by `bigo_final`.** Latin text is left untouched to keep English identical. The
-  romanized variant (`--latn-train`) is implemented but not built. The hand-written Kanglish set is a 10-line
-  template until the team writes 150–200 sentences.
+  romanized variant (`--latn-train`) is implemented but not built. Romanized (IndicXlit) FLORES costs 2.17× and
+  the 181-line Kanglish set 1.13× for every Qwen3 variant. The Kanglish set was written by Claude and checked
+  by a native speaker on the team.
 - **Unseen aksharas still split.** An unseen akshara must be split somewhere, and Qwen3's own old merge `Ġà²`
   fuses a word's leading space into a partial character.
 - **Training-data ZWNJ.** Sangraha `verified/kan` has ZWNJ stripped, so Kannada Wikipedia was mixed in.

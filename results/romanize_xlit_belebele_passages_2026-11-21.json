@@ -1,0 +1,14 @@
+{
+ "tool": "ai4bharat-transliteration (IndicXlit)",
+ "direction": "kn->en",
+ "beam": 4,
+ "date": "2026-11-21",
+ "files": {
+  "belebele_passages_kan_Knda.txt": {
+   "lines": 488,
+   "failed": 0,
+   "seconds": 3767.9,
+   "output": "belebele_passages_kan_Latn_xlit.txt"
+  }
+ }
+}

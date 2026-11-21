@@ -13,3 +13,6 @@ dist/
 data/level2/
 tokenizers_hf/
 data/qwen_train/
+
+logs/
+results/romanize_logs/

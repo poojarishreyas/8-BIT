@@ -1,0 +1,14 @@
+{
+ "tool": "ai4bharat-transliteration (IndicXlit)",
+ "direction": "kn->en",
+ "beam": 4,
+ "date": "2026-11-20",
+ "files": {
+  "parity_dev_kan_Knda.txt": {
+   "lines": 2000,
+   "failed": 0,
+   "seconds": 1633.0,
+   "output": "parity_dev_kan_Latn_xlit.txt"
+  }
+ }
+}
