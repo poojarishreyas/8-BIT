@@ -218,12 +218,16 @@ def run(a) -> dict:
         budget = a.new_tokens - len(stage_merges["a0"]) - len(stage_merges["a1"])
         if budget <= 0:
             raise SystemExit(f"--new-tokens {a.new_tokens} too small for a0+a1 ({a.new_tokens - budget})")
-        stage_merges["b"] = learn([train], budget, min_frequency=2)
+        if a.parity == "off":
+            stage_merges["b"] = learn([train], budget, min_frequency=2)
+        else:
+            stage_merges["b"] = parity_stage_b(a, tk, old_tok, full, train, budget, rep)
         print(f"b: {len(stage_merges['b'])} merges (budget {budget})")
 
     # ------------------------------------------------------------------ append (filtered)
     available = set(old_vocab)
     new_vocab, new_merges, dropped = {}, [], Counter()
+    n_latin = 0
     for stage in ("a0", "a1", "b"):
         for l, r in stage_merges.get(stage, []):
             res = l + r
@@ -234,8 +238,13 @@ def run(a) -> dict:
                 dropped["missing_component"] += 1
                 continue
             if not has_kannada_bytes(res):
-                dropped["no_kannada_bytes"] += 1
-                continue
+                # Latin merges (romanized Kannada, --latn-train) are kept only if English-safe: a merge of two
+                # original tokens that are adjacent somewhere in the English reference would change English.
+                eng_adj = rep.get("_eng_adj")
+                if eng_adj is None or (l in old_vocab and r in old_vocab and (l, r) in eng_adj):
+                    dropped["no_kannada_bytes" if eng_adj is None else "english_unsafe"] += 1
+                    continue
+                n_latin += 1
             new_merges.append([l, r])
             if res not in old_vocab and res not in new_vocab:
                 new_vocab[res] = next_id
@@ -252,9 +261,11 @@ def run(a) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     (out / "tokenizer.json").write_text(json.dumps(tj, ensure_ascii=False), encoding="utf-8")
     Tokenizer.from_file(str(out / "tokenizer.json"))
+    rep.pop("_eng_adj", None)
     rep.update(stage_merge_counts={k: len(v) for k, v in stage_merges.items()}, appended_merges=len(new_merges),
-               appended_tokens=len(new_vocab), dropped=dict(dropped), last_new_id=next_id - 1,
-               seconds=round(time.time() - t0, 1))
+               appended_tokens=len(new_vocab), appended_latin_merges=n_latin, dropped=dict(dropped),
+               last_new_id=next_id - 1, seconds=round(time.time() - t0, 1),
+               merge_learner="swiss-ai/parity-aware-bpe (learn_bpe, dict input) via tokenizer/bpe_glue.py")
     (out / "build_report.json").write_text(json.dumps(rep, indent=1, ensure_ascii=False), encoding="utf-8")
     print(json.dumps({k: v for k, v in rep.items() if k != "config"}, indent=1, ensure_ascii=False))
     return rep
@@ -283,6 +294,141 @@ def suffix_segments_old(w: str, old_tok) -> list[tuple[str, ...]]:
     return [old_tok(to_bl(left)), old_tok(to_bl(right))]
 
 
+def kannada_segments(w: str, old_tok, full: dict, use_suffix: bool) -> list[tuple[str, ...]] | None:
+    """Stage-b unit segments for one pre-token (same rules as the training loop in run()); None if not Kannada."""
+    text = from_bl(w).decode("utf-8", "replace")
+    if not text:
+        return None
+    pre_len = 0 if is_kannada(text[0]) else 1
+    body = text[pre_len:]
+    if not (body and is_kannada(body[0]) and all(is_kannada(c) or c in "‌‍" for c in body)):
+        return None
+    gs, spans = groups(w, list(old_tok(w)))
+    aks = aksharas(body)
+    ends, p = [], pre_len
+    for ak in aks:
+        p += len(ak)
+        ends.append(p)
+    per_ak: list[list[str]] = [[] for _ in aks]
+    prefix: list[str] = []
+    for g, (s, e) in zip(gs, spans):
+        if e <= pre_len:
+            prefix.append("".join(g))
+        else:
+            per_ak[next(i for i, x in enumerate(ends) if e <= x)].append("".join(g))
+    cut = suffix_mod.split(aks) if use_suffix else None
+    segs, seq = [], list(prefix)
+    for k, us in enumerate(per_ak):
+        u = full.get(tuple(us))
+        if u is None or k == cut:
+            if seq:
+                segs.append(tuple(seq))
+            seq = []
+            if u is None:
+                segs.append(tuple(us))  # rare akshara: its char units, unmergeable in practice
+                continue
+        seq.append(u)
+    if seq:
+        segs.append(tuple(seq))
+    return segs
+
+
+def english_adjacent_pairs(tk: Tokenizer, path: str, max_lines: int | None) -> set[tuple[str, str]]:
+    """Pairs of original tokens that are adjacent in the English reference (conservative: across pre-tokens too)."""
+    inv = {v: k for k, v in tk.get_vocab().items()}
+    pairs: set[tuple[int, int]] = set()
+    with open(path, encoding="utf-8") as f:
+        batch = []
+        for i, line in enumerate(f):
+            if max_lines and i >= max_lines:
+                break
+            batch.append(line)
+            if len(batch) == 500:
+                for e in tk.encode_batch(batch, add_special_tokens=False):
+                    pairs.update(zip(e.ids, e.ids[1:]))
+                batch = []
+        for e in tk.encode_batch(batch, add_special_tokens=False):
+            pairs.update(zip(e.ids, e.ids[1:]))
+    return {(inv[x], inv[y]) for x, y in pairs}
+
+
+def english_safe_split(units: tuple[str, ...], eng_adj: set, keep_single: bool = False) -> list[tuple[str, ...]]:
+    """Cut a Latin word's original-token sequence wherever two neighbours are an English-adjacent pair,
+    so BPE can never learn a merge that would fire inside English text."""
+    out, cur = [], [units[0]]
+    for x, y in zip(units, units[1:]):
+        if (x, y) in eng_adj:
+            out.append(tuple(cur))
+            cur = [y]
+        else:
+            cur.append(y)
+    out.append(tuple(cur))
+    return out if keep_single else [s for s in out if len(s) > 1]
+
+
+def parity_stage_b(a, tk, old_tok, full, train_kn: Counter, budget: int, rep: dict) -> list[tuple[str, str]]:
+    """Layer 4: parity-aware merge selection (swiss-ai/parity-aware-bpe, unchanged) over
+    [kan_Knda, (kan_Latn), eng_Latn]. English gets no training pairs: it is the fixed reference (its tokens must
+    not change), so once every Kannada form is shorter than English on the parallel dev set, the algorithm picks
+    English, finds nothing to merge, and stops - the parity point."""
+    devs = dict(x.split("=", 1) for x in (a.dev or []))
+    need = {"eng_Latn", "kan_Knda"} | ({"kan_Latn"} if a.latn_train else set())
+    if not need <= set(devs):
+        raise SystemExit(f"--parity on needs --dev for {sorted(need)} (parallel lines, not FLORES devtest)")
+    use_suffix = a.suffix == "seed"
+    eng_adj = None
+    langs = ["kan_Knda"] + (["kan_Latn"] if a.latn_train else []) + ["eng_Latn"]
+    trains = {"kan_Knda": train_kn, "eng_Latn": Counter()}
+    if a.latn_train:
+        eng_adj = english_adjacent_pairs(tk, a.english_ref, None)
+        rep["_eng_adj"] = eng_adj
+        rep["english_ref"] = a.english_ref
+        rep["english_adjacent_pairs"] = len(eng_adj)
+        lw = count_all_words(tk, a.latn_train, a.max_lines)
+        tl = Counter()
+        for w, c in lw.items():
+            t = from_bl(w).decode("utf-8", "replace")
+            if any(is_kannada(ch) for ch in t):
+                continue
+            for s in english_safe_split(old_tok(w), eng_adj) if len(old_tok(w)) > 1 else []:
+                tl[s] += c
+        trains["kan_Latn"] = tl
+        print(f"kan_Latn: {len(tl):,} English-safe segments for training")
+
+    def dev_counter(lang: str) -> Counter:
+        out = Counter()
+        for w, c in count_all_words(tk, devs[lang], None).items():
+            ks = kannada_segments(w, old_tok, full, use_suffix) if lang == "kan_Knda" else None
+            if ks is not None:
+                segs = ks
+            elif lang == "kan_Latn" and eng_adj is not None:
+                segs = english_safe_split(old_tok(w), eng_adj, keep_single=True)  # singles still count as tokens
+            else:
+                segs = [old_tok(w)]
+            for s in segs:
+                out[s] += c
+        return out
+
+    dev = {l: dev_counter(l) for l in langs}
+    rep["parity_langs"] = langs
+    rep["parity_dev"] = {l: devs[l] for l in langs}
+    rep["parity_dev_units_before"] = {l: sum(len(k) * v for k, v in dev[l].items()) for l in langs}
+    merges = learn([trains[l] for l in langs], budget, dev_per_lang=[dev[l] for l in langs], min_frequency=2)
+    rep["parity_stopped_early"] = len(merges) < budget
+    return merges
+
+
+def count_all_words(tk: Tokenizer, path: str, max_lines: int | None) -> Counter:
+    words = Counter()
+    with open(path, encoding="utf-8") as f:
+        for i, line in enumerate(f):
+            if max_lines and i >= max_lines:
+                break
+            for w, _ in tk.pre_tokenizer.pre_tokenize_str(line):
+                words[w] += 1
+    return words
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="Qwen/Qwen3-1.7B")
@@ -295,10 +441,13 @@ def main() -> None:
     ap.add_argument("--train", default="data/processed/train/kan_Knda.txt")
     ap.add_argument("--max-lines", type=int, default=None)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--dev", action="append", help="layer 4 parallel dev: eng_Latn=.. kan_Knda=.. [kan_Latn=..]")
+    ap.add_argument("--latn-train", default=None, help="romanized Kannada training text: also learn English-safe Latin merges")
+    ap.add_argument("--english-ref", default="data/processed/train/eng_Latn.txt",
+                    help="English text defining which original-token pairs are off-limits for Latin merges")
     a = ap.parse_args()
-    if a.parity == "on":
-        raise SystemExit("--parity on: not wired yet for the extension (Kannada-only merges => single language); "
-                         "see docs note in build report")
+    if a.parity == "on" and a.units != "akshara":
+        raise SystemExit("--parity on is implemented for --units akshara")
     run(a)
 
 

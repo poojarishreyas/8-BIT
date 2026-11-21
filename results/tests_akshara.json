@@ -1,0 +1,9 @@
+{
+ "l123z_16k": {
+  "tokenizer": "artifacts\\ext\\l123z_16k\\tokenizer.json",
+  "multi_codepoint_aksharas": 155165,
+  "split_total": 282,
+  "split_in_inventory": 0,
+  "examples_in_inventory": []
+ }
+}

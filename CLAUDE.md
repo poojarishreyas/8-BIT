@@ -1,5 +1,7 @@
 # CLAUDE.md — Big-O Token Tax (The Big Hack 2.0, problem R3)
 
+> **SCOPE CHANGE (2026-11-20 23:30): we do NOT train models anymore. Follow `docs/EVAL_INSTRUCTIONS.md` first.**
+
 Read this first. Full detail lives in `docs/PROJECT_PLAN.md`; the task checklist is `docs/TASKS.md`.
 
 ## What we are building

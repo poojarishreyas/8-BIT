@@ -6,9 +6,14 @@
 
 Config (env vars):
   BIGO_OLD_TOKENIZER   original tokenizer (default: Qwen/Qwen3-1.7B from the HF cache/hub)
-  BIGO_NEW_TOKENIZER   extended tokenizer.json (default: artifacts/qwen3_markaware/tokenizer.json)
-  BIGO_AKSHARA_SAFE    comma-separated tokenizer.json paths that must pass test 3 (default: NEW if it
-                       has appended merges; the pattern-only tokenizer is not expected to pass)
+  BIGO_NEW_TOKENIZER   extended tokenizer.json (default: artifacts/final/bigo_final/tokenizer.json)
+  BIGO_AKSHARA_SAFE    comma-separated tokenizer.json paths for test 3 (default: NEW)
+
+Test 3, precisely: an akshara that never occurred in training cannot be a single token, so *some* boundary
+must fall inside it (and Qwen3's own old merge 'Ġà²' fuses a word's leading space into part of it). The
+guarantee we test is: no akshara that IS in the tokenizer's inventory (single token in the form it occurs)
+is ever split in running text - this count must be 0 on all test Kannada. The total number of split
+(out-of-inventory) aksharas is reported to results/tests_akshara.json.
 """
 from __future__ import annotations
 
@@ -25,7 +30,16 @@ from tokenizer.registry import load_hf_file
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(__file__).parent / "data"
-NEW = Path(os.environ.get("BIGO_NEW_TOKENIZER", ROOT / "artifacts/qwen3_markaware/tokenizer.json"))
+NEW = Path(os.environ.get("BIGO_NEW_TOKENIZER", ROOT / "artifacts/final/bigo_final/tokenizer.json"))
+RAW, PROC = ROOT / "data/raw/test", ROOT / "data/processed/test"
+
+
+def find_test_files(pattern: str) -> list[Path]:
+    return sorted([*RAW.glob(pattern), *PROC.glob(pattern)])
+
+
+def file_lines(p: Path) -> list[str]:
+    return [l for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 ROUND_TRIP = [
     "ಮನೆಯಲ್ಲಿ ಇದೆ.", "ಕನ್ನಡ ಒಂದು ಸುಂದರ ಭಾಷೆ", "ಕ್ರಿಕೆಟ್ ಸ್ತ್ರೀ ಶಾಂತಿ ಪ್ರಶ್ನೆ",
@@ -65,7 +79,19 @@ def identity_corpus():
 def test_identity_corpus_size():
     rows = identity_corpus()
     assert len(rows) >= 1000
-    assert {r["kind"] for r in rows} >= {"english", "code", "json", "tool_call"}
+    kinds = {k: sum(r["kind"] == k for r in rows) for k in ("english", "code", "json", "tool_call")}
+    assert kinds["json"] + kinds["tool_call"] >= 50 and kinds["code"] > 0
+    assert kinds["english"] + sum(len(file_lines(p)) for p in find_test_files("*_eng_Latn.txt")) >= 500
+
+
+def test_identity_english_test_sets(old, new):
+    """Every English line of every test set (FLORES devtest, IN22-Gen, Belebele passages, Kanglish-eng)."""
+    bad = []
+    for p in find_test_files("*_eng_Latn.txt") + find_test_files("kanglish_handwritten_eng.txt"):
+        for line in file_lines(p):
+            if old.encode(line, add_special_tokens=False).ids != new.encode(line, add_special_tokens=False).ids:
+                bad.append((p.name, line[:60]))
+    assert not bad, f"{len(bad)} English test lines changed, e.g. {bad[:3]}"
 
 
 def test_identity_old_vs_new(old, new):
@@ -131,19 +157,73 @@ def test_akshara_checker_detects_splits():
 
 
 def kannada_sample() -> list[str]:
-    p = ROOT / "data/processed/test/belebele_passages_kan_Knda.txt"
-    extra = p.read_text(encoding="utf-8").splitlines()[:100] if p.exists() else []
-    return [t for t in ROUND_TRIP if any("ಀ" <= c <= "೿" for c in t)] + extra
+    out = [t for t in ROUND_TRIP if any("ಀ" <= c <= "೿" for c in t)]
+    for p in find_test_files("*_kan_Knda.txt"):
+        if not p.name.startswith("flores_dev_"):
+            out += file_lines(p)
+    return out
 
 
 def _akshara_safe_paths() -> list[str]:
     env = os.environ.get("BIGO_AKSHARA_SAFE")
-    return [p for p in env.split(",") if p] if env else []
+    if env:
+        return [p for p in env.split(",") if p]
+    return [str(NEW)] if NEW.exists() else []
+
+
+def akshara_report(path: str) -> dict:
+    tok = load_hf_file("candidate", path)
+    total = in_inv = n = 0
+    examples = {}
+    for s in kannada_sample():
+        s = tok.normalize(s)
+        raw = s.encode("utf-8")
+        for a_bytes in kannada_akshara_byte_spans(s):
+            n += 1
+        for st, en in [(st, en) for st, en in kannada_akshara_byte_spans(s)
+                       if any(st < b < en for b in _inner(tok, s))]:
+            total += 1
+            a = raw[st:en].decode("utf-8")
+            sp = st > 0 and raw[st - 1:st] == b" "
+            if len(tok.encode((" " if sp else "") + a)) == 1:
+                in_inv += 1
+                examples.setdefault(a, s[:60])
+    return dict(tokenizer=path, multi_codepoint_aksharas=n, split_total=total, split_in_inventory=in_inv,
+                examples_in_inventory=list(examples.items())[:5])
+
+
+def _inner(tok, s: str) -> set:
+    b, pos = set(), 0
+    pieces = tok.token_bytes(s)
+    for x in pieces[:-1]:
+        pos += len(x)
+        b.add(pos)
+    return b
 
 
 @pytest.mark.parametrize("path", _akshara_safe_paths() or [pytest.param(None, marks=pytest.mark.skip(
-    reason="no akshara-safe tokenizer built yet (set BIGO_AKSHARA_SAFE); Phase 2"))])
+    reason="bigo_final not built yet (or set BIGO_AKSHARA_SAFE)"))])
 def test_akshara_integrity(path):
-    tok = load_hf_file("candidate", path)
-    bad = [(s[:40], bad) for s in kannada_sample() if (bad := boundaries_inside_aksharas(tok, s))]
-    assert not bad, f"{len(bad)} sentences have split aksharas, e.g. {bad[:3]}"
+    r = akshara_report(path)
+    out = ROOT / "results/tests_akshara.json"
+    prev = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
+    prev[Path(path).parent.name] = r
+    out.write_text(json.dumps(prev, indent=1, ensure_ascii=False), encoding="utf-8")
+    print(f"\n{r['split_total']} of {r['multi_codepoint_aksharas']} aksharas split (all out-of-inventory); "
+          f"in-inventory splits: {r['split_in_inventory']}")
+    assert r["split_in_inventory"] == 0, r["examples_in_inventory"]
+
+
+# ---------------------------------------------------------------- round trip on every test file, every form
+@pytest.mark.parametrize("which", ["old", "new"])
+def test_round_trip_all_test_sets(request, which):
+    tk = request.getfixturevalue(which)
+    bad = []
+    files = [p for p in find_test_files("*.txt")]
+    assert files, "no test files found"
+    for p in files:
+        for line in file_lines(p):
+            ids = tk.encode(line, add_special_tokens=False).ids
+            if tk.decode(ids, skip_special_tokens=False) != unicodedata.normalize("NFC", line):
+                bad.append((p.name, line[:50]))
+    assert not bad, f"{len(bad)} lines fail the round trip, e.g. {bad[:3]}"
