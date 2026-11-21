@@ -16,3 +16,5 @@ data/qwen_train/
 
 logs/
 results/romanize_logs/
+
+README.old.md
