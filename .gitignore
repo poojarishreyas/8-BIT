@@ -10,3 +10,6 @@ artifacts/
 *.bin
 .env
 dist/
+data/level2/
+tokenizers_hf/
+data/qwen_train/

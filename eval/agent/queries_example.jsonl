@@ -1,0 +1,6 @@
+{"id": "ex-kn-1", "lang": "kan_Knda", "query": "ನಾಳೆ ಮೈಸೂರಿನಲ್ಲಿ ಮಳೆ ಬರುತ್ತಾ?", "gold": [{"name": "get_weather", "arguments": {"city": ["Mysuru", "Mysore", "ಮೈಸೂರು"], "date": ["tomorrow", "ನಾಳೆ"]}}]}
+{"id": "ex-kn-2", "lang": "kan_Knda", "query": "ಹುಬ್ಬಳ್ಳಿ ಮಾರುಕಟ್ಟೆಯಲ್ಲಿ ಇವತ್ತು ಈರುಳ್ಳಿ ಬೆಲೆ ಎಷ್ಟು?", "gold": [{"name": "mandi_price", "arguments": {"commodity": ["onion", "ಈರುಳ್ಳಿ"], "market": ["Hubballi", "Hubli", "ಹುಬ್ಬಳ್ಳಿ"]}}]}
+{"id": "ex-kg-1", "lang": "kanglish", "query": "Silk Board stop ge 500D bus yaavaga barutte?", "gold": [{"name": "bmtc_bus_eta", "arguments": {"stop": ["Silk Board", "silk board junction"], "route": ["500D"]}}]}
+{"id": "ex-kg-2", "lang": "kanglish", "query": "Kuvempu bagge swalpa heli", "gold": [{"name": "kannada_wiki", "arguments": {"topic": ["Kuvempu", "ಕುವೆಂಪು"]}}]}
+{"id": "ex-en-1", "lang": "eng_Latn", "query": "What's the weather in Bengaluru today?", "gold": [{"name": "get_weather", "arguments": {"city": ["Bengaluru", "Bangalore", "ಬೆಂಗಳೂರು"]}}]}
+{"id": "ex-en-2", "lang": "eng_Latn", "query": "Thanks, that's all for now.", "gold": []}
