@@ -113,7 +113,7 @@ def charts(m: pd.DataFrame, final: str, split: str) -> None:
         ax.text(v + 0.08, y, f"{v:.2f}×", va="center", fontsize=12, color=INK)
     ax.axvline(1.0, color=INK2, lw=1, ls=(0, (4, 3)))
     ax.text(1.02, len(d) - 0.45, "parity with English", fontsize=10, color=INK2)
-    style(ax, "Kannada costs this many times more tokens than the same English", "tokens ÷ English tokens (FLORES-200 devtest)")
+    style(ax, "Token cost of Kannada relative to the same English text", "tokens ÷ English tokens (FLORES-200 devtest)")
     ax.grid(axis="x", color=GRID, lw=0.8)
     ax.set_axisbelow(True)
     fig.tight_layout()
@@ -224,7 +224,7 @@ body{{margin:0;background:{SURF};font-family:'Nirmala UI','Segoe UI',sans-serif;
 .wrap{{padding:36px 44px;width:1500px}} h1{{font-size:30px;margin:0 0 6px}} p{{color:{INK2};font-size:19px;margin:0 0 26px}}
 .row{{display:flex;gap:24px;align-items:flex-start;margin:20px 0}} .lab{{width:140px;font-size:22px;font-weight:600}}
 .lab b{{display:block;font-size:17px;font-weight:400;color:{INK2}}} .toks{{flex:1;font-size:34px;line-height:2.1}}
-.t{{padding:4px 3px;margin:0 2px;border-radius:5px;white-space:pre}} .t0{{background:#d6e6f8}} .t1{{background:#fbe0d3}}
+.t{{display:inline-block;padding:2px 3px;margin:3px 2px;border-radius:5px;white-space:pre}} .t0{{background:#d6e6f8}} .t1{{background:#fbe0d3}}
 .part{{color:{INK2};font-size:20px}}
 </style></head><body><div class="wrap"><h1>Same sentence, two tokenizers</h1>
 <p>Each shaded box is one token. “·” marks a token that ends in the middle of a character (raw UTF-8 bytes).</p>
@@ -236,7 +236,7 @@ body{{margin:0;background:{SURF};font-family:'Nirmala UI','Segoe UI',sans-serif;
                              r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"] if Path(p).exists()), None)
     if edge:
         subprocess.run([edge, "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--screenshot={CH / '5_token_viz.png'}",
-                        "--window-size=1600,900", hp.resolve().as_uri()], check=False, capture_output=True, timeout=60)
+                        "--window-size=1600,1100", hp.resolve().as_uri()], check=False, capture_output=True, timeout=60)
 
 
 # ------------------------------------------------------------------ B5 failure analysis (counts)

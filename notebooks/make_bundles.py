@@ -53,7 +53,7 @@ def main() -> None:
                     z.write(p, rel.as_posix())
     if "test" in a.only:
         files = sorted((ROOT / "data/raw/test").glob("*.txt")) + sorted((ROOT / "data/raw/test").glob("belebele_*.jsonl")) + \
-            sorted((ROOT / "data/processed/test").glob("*.txt")) + sorted((ROOT / "data/processed/dev").glob("*_kan_Knda.txt"))
+            sorted((ROOT / "data/processed/test").glob("*.txt")) + sorted((ROOT / "data/processed/test").glob("*.jsonl")) +             sorted((ROOT / "data/processed/dev").glob("*_kan_Knda.txt"))
         files = [p for p in files if not p.name.startswith("flores_dev_")]  # FLORES dev not needed on Kaggle
         with zipfile.ZipFile(dist / "bigo-test.zip", "w", zipfile.ZIP_DEFLATED) as z:
             for p in files:

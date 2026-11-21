@@ -30,6 +30,34 @@ def prompt(ex: dict) -> str:
             + "".join(f"{L}: {n(ex[f'mc_answer{i}'])}\n" for i, L in enumerate("ABCD", 1)) + "Answer:")
 
 
+def _norm(s: str) -> str:
+    return unicodedata.normalize("NFC", " ".join(str(s).split()))
+
+
+def load_rows(data: str, lang: str) -> list[dict]:
+    """kan_Knda / eng_Latn from belebele_<lang>.jsonl. kan_Latn = the same Kannada rows with the passage replaced
+    by its IndicXlit romanization (belebele_passages_kan_Latn_xlit.txt is line-aligned with
+    belebele_passages_kan_Knda.txt); questions and options stay in Kannada script (only passages were romanized)."""
+    src = "kan_Knda" if lang == "kan_Latn" else lang
+    f = next(Path(data).rglob(f"belebele_{src}.jsonl"), None)
+    if f is None:
+        return []
+    rows = [json.loads(l) for l in f.read_text(encoding="utf-8").splitlines()]
+    if lang != "kan_Latn":
+        return rows
+    kn = next(Path(data).rglob("belebele_passages_kan_Knda.txt"), None)
+    lt = next(Path(data).rglob("belebele_passages_kan_Latn_xlit.txt"), None)
+    if kn is None or lt is None:
+        return []
+    m = dict(zip((_norm(x) for x in kn.read_text(encoding="utf-8").splitlines()), lt.read_text(encoding="utf-8").splitlines()))
+    out = []
+    for r in rows:
+        x = m.get(_norm(r["flores_passage"]))
+        if x:
+            out.append({**r, "flores_passage": x})
+    return out
+
+
 @torch.no_grad()
 def run(model, tok, rows: list[dict], dev, batch: int) -> tuple[list[int], list[int]]:
     letter_ids = []
@@ -44,8 +72,7 @@ def run(model, tok, rows: list[dict], dev, batch: int) -> tuple[list[int], list[
     for k in range(0, len(rows), batch):
         ps = [prompt(r) for r in rows[k:k + batch]]
         enc = tok(ps, return_tensors="pt", padding=True, add_special_tokens=False).to(dev)
-        with torch.autocast("cuda", dtype=torch.float16, enabled=dev.type == "cuda"):
-            logits = model(**enc).logits[:, -1, :]
+        logits = model(**enc).logits[:, -1, :]
         preds += logits[:, letter_ids].argmax(-1).tolist()
         lens += enc["attention_mask"].sum(-1).tolist()
     return preds, lens
@@ -56,21 +83,23 @@ def main() -> None:
     ap.add_argument("--model", required=True, help="HF model folder or hub id")
     ap.add_argument("--tokenizer", default=None)
     ap.add_argument("--data", required=True, help="folder with belebele_<lang>.jsonl")
-    ap.add_argument("--langs", nargs="+", default=["kan_Knda", "eng_Latn"])
+    ap.add_argument("--langs", nargs="+", default=["kan_Knda", "eng_Latn", "kan_Latn"])
     ap.add_argument("--out", default="results")
-    ap.add_argument("--device", default="cuda:0")
+    ap.add_argument("--device", default=None, help="default: cuda if available (incl. ROCm), else cpu")
     ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--limit", type=int, default=None)
     a = ap.parse_args()
 
     model, tok = load(a.model, a.device, a.tokenizer)
-    dev = torch.device(a.device)
+    dev = next(model.parameters()).device
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     rows_out = []
     for lang in a.langs:
-        f = next(Path(a.data).rglob(f"belebele_{lang}.jsonl"))
-        rows = [json.loads(l) for l in f.read_text(encoding="utf-8").splitlines()][: a.limit]
+        rows = load_rows(a.data, lang)[: a.limit]
+        if not rows:
+            print(f"[skip] belebele {lang}: data missing")
+            continue
         t0 = time.perf_counter()
         preds, lens = run(model, tok, rows, dev, a.batch)
         secs = time.perf_counter() - t0

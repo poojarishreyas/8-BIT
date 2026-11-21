@@ -99,11 +99,21 @@ def run_query(model, tok, q: dict, tools: list, dev, max_turns: int, max_new: in
         arg_acc = sum(arg_ok(v, pa.get(k)) for k, v in ga.items()) / len(ga) if ga else float(bool(calls))
     else:
         arg_acc = 1.0 if not calls else 0.0
+    ga = gold[0].get("arguments", {}) if gold else {}
+    pa = calls[0]["arguments"] if calls else {}
+    tp = sum(arg_ok(v, pa.get(k)) for k, v in ga.items())
+    prec = tp / len(pa) if pa else (1.0 if not ga else 0.0)
+    rec = tp / len(ga) if ga else 1.0
+    arg_f1 = 0.0 if prec + rec == 0 else 2 * prec * rec / (prec + rec)
+    arg_exact = int(bool(gold) and bool(calls) and tp == len(ga))
     seq_ok = [c["name"] for c in calls[: len(gold)]] == [g["name"] for g in gold] and \
         all(all(arg_ok(v, c["arguments"].get(k)) for k, v in g.get("arguments", {}).items()) for g, c in zip(gold, calls))
     success = seq_ok if gold else not calls
     return dict(id=q["id"], lang=q["lang"], tool_choice=int(first_pred == first_gold), arg_accuracy=round(arg_acc, 3),
-                task_success=int(success), n_calls=len(calls), malformed=sum(1 for c in calls if c.get("malformed")),
+                task_success=int(success), arg_exact=arg_exact, arg_f1=round(arg_f1, 3),
+                attempted_call=int(bool(calls) or "<tool_call>" in text),
+                valid_json=int(not any(c.get("malformed") for c in calls)),
+                n_calls=len(calls), malformed=sum(1 for c in calls if c.get("malformed")),
                 tokens=tokens, prompt_tokens_turn1=first_prompt, seconds=round(secs, 2),
                 pred_calls=json.dumps(calls, ensure_ascii=False), final=final[:300])
 
@@ -112,21 +122,25 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
     ap.add_argument("--tokenizer", default=None)
-    ap.add_argument("--queries", required=True)
+    ap.add_argument("--queries", default="data/processed/test/agent_queries.jsonl")
     ap.add_argument("--extra-tools", default=None, help="JSON list of extra tool schemas (e.g. to reach 52 tools)")
     ap.add_argument("--toolset", default=None, help="label for results, default = number of tools")
     ap.add_argument("--max-turns", type=int, default=3)
     ap.add_argument("--max-new-tokens", type=int, default=256)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--out", default="results")
-    ap.add_argument("--device", default="cuda:0")
+    ap.add_argument("--device", default=None, help="default: cuda if available (incl. ROCm), else cpu")
     a = ap.parse_args()
 
     model, tok = load(a.model, a.device, a.tokenizer)
-    dev = torch.device(a.device)
+    dev = next(model.parameters()).device
     tools = TOOLS + load_extra(a.extra_tools)
     toolset = a.toolset or str(len(tools))
     qs = [json.loads(l) for l in Path(a.queries).read_text(encoding="utf-8").splitlines() if l.strip()][: a.limit]
+    for q in qs:  # data/processed/test/agent_queries.jsonl format: form / expected_tool / expected_args
+        if "expected_tool" in q:
+            q["gold"] = [{"name": q["expected_tool"], "arguments": q.get("expected_args", {})}] if q["expected_tool"] else []
+            q["lang"] = q.get("form", q.get("lang"))
     label = model_label(a.model)
     rows = []
     for q in qs:
@@ -146,7 +160,10 @@ def main() -> None:
         rs = [r for r in rows if lang == "all" or r["lang"] == lang]
         m = lambda k: round(sum(r[k] for r in rs) / len(rs), 4)
         summ.append(dict(model=label, toolset=toolset, lang=lang, n=len(rs), tool_choice=m("tool_choice"),
-                         arg_accuracy=m("arg_accuracy"), task_success=m("task_success"), tokens_per_task=m("tokens"),
+                         arg_accuracy=m("arg_accuracy"), arg_exact=m("arg_exact"), arg_f1=m("arg_f1"),
+                         valid_json_rate=(sum(r["valid_json"] for r in rs if r["attempted_call"]) /
+                                          max(1, sum(r["attempted_call"] for r in rs))),
+                         task_success=m("task_success"), tokens_per_task=m("tokens"),
                          prompt_tokens_turn1=m("prompt_tokens_turn1"), seconds_per_task=m("seconds"),
                          tokenizer_len=len(tok), date=dt.date.today().isoformat()))
     f = out / "agent_summary.csv"

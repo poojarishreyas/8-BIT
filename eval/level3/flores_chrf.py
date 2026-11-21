@@ -22,11 +22,19 @@ import torch
 
 from model.hf_load import load, model_label
 
-NAMES = {"eng": ("English", "eng_Latn"), "kan": ("Kannada", "kan_Knda")}
+NAMES = {"eng": ("English", "eng_Latn"), "kan": ("Kannada", "kan_Knda"),
+         "kanglish": ("Kanglish (Kannada written in English letters, mixed with English)", "kanglish")}
 
 
-def read(data: str, code: str) -> list[str]:
-    f = next(Path(data).rglob(f"flores_devtest_{code}.txt"))
+def read(data: str, code: str, pair: str = "") -> list[str]:
+    """FLORES devtest files; for the Kanglish direction both sides come from the hand-written set."""
+    if "kanglish" in pair:
+        name = "kanglish_handwritten.txt" if code == "kanglish" else "kanglish_handwritten_eng.txt"
+    else:
+        name = f"flores_devtest_{code}.txt"
+    f = next(Path(data).rglob(name), None)
+    if f is None:
+        return []
     return [unicodedata.normalize("NFC", l) for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
@@ -73,24 +81,27 @@ def main() -> None:
     ap.add_argument("--model", required=True)
     ap.add_argument("--tokenizer", default=None)
     ap.add_argument("--data", required=True, help="folder with flores_devtest_{eng_Latn,kan_Knda}.txt")
-    ap.add_argument("--directions", nargs="+", default=["eng-kan", "kan-eng"])
-    ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--directions", nargs="+", default=["eng-kan", "kan-eng", "kanglish-eng"])
+    ap.add_argument("--limit", type=int, default=200, help="200 for quick runs; 1012 = full devtest")
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--max-new-tokens", type=int, default=600)
     ap.add_argument("--out", default="results")
-    ap.add_argument("--device", default="cuda:0")
+    ap.add_argument("--device", default=None, help="default: cuda if available (incl. ROCm), else cpu")
     a = ap.parse_args()
     import sacrebleu
 
     model, tok = load(a.model, a.device, a.tokenizer)
-    dev = torch.device(a.device)
+    dev = next(model.parameters()).device
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     rows = []
     label = model_label(a.model)
     for d in a.directions:
         s, t = d.split("-")
-        srcs, refs = read(a.data, NAMES[s][1])[: a.limit], read(a.data, NAMES[t][1])[: a.limit]
+        srcs, refs = read(a.data, NAMES[s][1], d)[: a.limit], read(a.data, NAMES[t][1], d)[: a.limit]
+        if not srcs or len(srcs) != len(refs):
+            print(f"[skip] {d}: data missing or not parallel")
+            continue
         hyps, ot, it, secs = translate(model, tok, srcs, NAMES[s][0], NAMES[t][0], dev, a.batch, a.max_new_tokens)
         chrf = sacrebleu.corpus_chrf(hyps, [refs], word_order=2).score
         r = dict(model=label, tokenizer_len=len(tok), direction=d, split="flores_devtest", n=len(srcs),

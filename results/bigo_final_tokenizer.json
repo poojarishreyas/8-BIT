@@ -1,0 +1,7 @@
+{
+ "sha256": "a1699d6d31550584f3ea1d1faef1e8b3d7ffc7666ffdec18fd8347a58012b4fb",
+ "total_vocab": 183660,
+ "new_tokens": 31991,
+ "first_new_id": 151669,
+ "source": "l123z_32k"
+}

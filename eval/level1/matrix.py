@@ -204,10 +204,14 @@ def main() -> None:
         with open(out, encoding="utf-8") as fh:
             rows += list(csv.DictReader(fh))
     cols = list(dict.fromkeys(k for r in rows for k in r))
-    with open(a.out, "w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=cols)
-        w.writeheader()
-        w.writerows(rows)
+    try:
+        with open(a.out, "w", newline="", encoding="utf-8") as fh:
+            w = csv.DictWriter(fh, fieldnames=cols)
+            w.writeheader()
+            w.writerows(rows)
+    except PermissionError:
+        raise SystemExit(f"cannot write {a.out}: it is open in another program (Excel?). Close it and rerun "
+                         "(all parts are cached, the merge takes seconds).")
     print("wrote", a.out, len(rows), "rows")
 
 

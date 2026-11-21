@@ -5,5 +5,12 @@
   "split_total": 282,
   "split_in_inventory": 0,
   "examples_in_inventory": []
+ },
+ "bigo_final": {
+  "tokenizer": "C:\\projects\\Big-O_token-tax\\artifacts\\final\\bigo_final\\tokenizer.json",
+  "multi_codepoint_aksharas": 155165,
+  "split_total": 282,
+  "split_in_inventory": 0,
+  "examples_in_inventory": []
  }
 }
